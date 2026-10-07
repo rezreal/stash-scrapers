@@ -1,0 +1,77 @@
+# Builds this repo into a Stash scraper source and publishes it to the gh-pages branch.
+#
+# Nothing becomes publicly reachable until GitHub Pages is switched on for that branch —
+# until then the build just sits in the repo, as private as the rest of it.
+name: Publish scraper source
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'scrapers/**'
+      - 'build_site.sh'
+      - '.github/workflows/publish.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-scraper-source
+  cancel-in-progress: true
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # build_site.sh versions each package from the last commit that touched its
+          # directory, so it needs real history rather than a depth-1 checkout.
+          fetch-depth: 0
+
+      - name: Validate the scrapers
+        run: python3 validate.py
+
+      - name: Build
+        run: ./build_site.sh _site
+
+      - name: Publish to gh-pages
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          # Stops GitHub Pages running the output through Jekyll, which would drop files
+          # and directories beginning with an underscore.
+          touch _site/.nojekyll
+          cd _site
+          git init -q
+          git checkout -q -b gh-pages
+          git add -A
+          # Authored anonymously, to match the rest of this repo's history.
+          git -c user.name=anon -c user.email=anon@users.noreply.github.com \
+              commit -q -m "Build from ${GITHUB_SHA::7}"
+          # A single orphan commit, force-pushed: this is build output, so there is no
+          # value in accumulating history for it.
+          git push -q --force \
+            "https://x-access-token:${GITHUB_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" \
+            gh-pages
+          echo "published $(ls -1 | grep -c '\.zip$') scrapers to gh-pages"
+
+      - name: Summary
+        run: |
+          {
+            echo '### Scraper source published'
+            echo
+            echo 'Branch `gh-pages` updated. To use it in Stash, enable Pages for that'
+            echo 'branch, then add this as a source URL:'
+            echo
+            echo '```'
+            echo "https://${GITHUB_REPOSITORY_OWNER}.github.io/${GITHUB_REPOSITORY#*/}/index.yml"
+            echo '```'
+            echo
+            echo '#### index.yml'
+            echo '```yaml'
+            cat _site/index.yml
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"

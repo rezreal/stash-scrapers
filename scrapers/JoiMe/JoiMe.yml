@@ -1,0 +1,53 @@
+# Scraper for https://joi-me.com/ (DataLife Engine)
+# Matches article pages: https://joi-me.com/<category>/<id>-<slug>.html
+#
+# Metadata only. The site's download links are deliberately not scraped.
+name: "JOI-Me"
+
+sceneByURL:
+  - action: scrapeXPath
+    url:
+      - joi-me.com/
+    scraper: sceneScraper
+
+xPathScrapers:
+  sceneScraper:
+    scene:
+      # og:title is "Performer - Title" on all 45 sampled pages. The non-greedy match
+      # strips only up to the first " - ", which matters because 4 of those titles carry
+      # a second one; and no performer name in the sample contains " - ", so this gives
+      # the same answer as stripping the performer tag by value.
+      Title:
+        selector: //meta[@property="og:title"]/@content
+        postProcess:
+          - replace:
+              - regex: '^.*? - '
+                with: ""
+
+      URL: //meta[@property="og:url"]/@content
+
+      Details: //meta[@name="description"]/@content
+
+      Image: //meta[@property="og:image"]/@content
+
+      # Every /tags/ link sits in one flat list with nothing to tell the performer from
+      # the rest, but the first is the performer on all 45 sampled pages — cross-checked
+      # against the og:title prefix, which it matched every time. The parentheses matter:
+      # they make position() apply to the whole node-set rather than per parent.
+      Performers:
+        Name: (//a[contains(@href,"/tags/")])[1]
+
+      Tags:
+        Name: (//a[contains(@href,"/tags/")])[position()>1]
+
+      # Deliberately not mapped:
+      #
+      #   Date    — the only date on the page (li.meta_date) is when the entry was posted
+      #             to this index, not when the clip was released. The other <time>
+      #             elements belong to the sidebar's related items, not to this article.
+      #   Studio  — the site is an index, not the producer.
+      #   Tags from <meta name="keywords"> — DataLife Engine generates those from the
+      #             description, so they are words like "loose, dangerous, guilty, clear"
+      #             rather than tags, and the first is not the performer.
+
+# Last Updated September 7, 2026

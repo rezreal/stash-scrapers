@@ -1,0 +1,56 @@
+# Scraper for https://shibbydex.com/ file pages: https://shibbydex.com/file/<uuid>
+#
+# This drives Shibbydex.py rather than mapping XPath directly. Both files go in the
+# same directory (~/.stash/scrapers/); the script needs python3 on PATH and nothing else.
+#
+# Why a script rather than mapped XPath: one mapped field has exactly one selector and one
+# postProcess chain, so it cannot emit "Trigger Installed: X" for one group of trigger
+# badges and "Trigger: Y" for another, cannot route the details table's label rows to Tags
+# and its prose rows to Details, and cannot build the reverse index that turns the site's
+# series into Groups.
+name: "Shibbydex"
+
+# Packaging directive, read by CommunityScrapers' build_site.sh when it zips a scraper
+# directory. Without it the zip would sweep in the whole folder — including the generated
+# caches, any downloaded audio, and shibbydex-cookies.txt, which is a live session
+# credential. Only Shibbydex.yml and Shibbydex.py belong in the package.
+# ignore: shibbydex-cookies.txt* shibbydex-series.json shibbydex-index.json shibbydex-dl.py *.mp3 *.funscript
+
+sceneByURL:
+  - action: script
+    url:
+      - shibbydex.com/file/
+    script:
+      - python3
+      - Shibbydex.py
+
+# Search by name — for scenes whose URL you do not have. Stash only offers this when both
+# of these are defined, and unlike sceneByURL they are single objects, not lists.
+# Pass a filename and the audience prefix and trailing [tag] run are stripped before
+# searching, so "[F4M] - Some Title - [Fdom][Hypnosis].mp3" looks up "Some Title".
+sceneByName:
+  action: script
+  script:
+    - python3
+    - Shibbydex.py
+    - sceneByName
+
+# Stash hands the chosen search result straight back, so it still carries its url.
+sceneByQueryFragment:
+  action: script
+  script:
+    - python3
+    - Shibbydex.py
+
+# Series pages as Groups. The scene scraper already attaches scenes to their series, so
+# this is for filling in the group itself — paste the /serie/ URL into a group and scrape.
+groupByURL:
+  - action: script
+    url:
+      - shibbydex.com/serie/
+    script:
+      - python3
+      - Shibbydex.py
+      - groupByURL
+
+# Last Updated August 27, 2026

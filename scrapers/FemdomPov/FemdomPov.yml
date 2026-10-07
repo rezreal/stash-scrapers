@@ -1,0 +1,72 @@
+# Scraper for https://femdom-pov.me/ (WordPress)
+# Matches post pages: https://femdom-pov.me/<slug>/
+#
+# Metadata only. The site's download links are deliberately not scraped.
+name: "Femdom POV"
+
+sceneByURL:
+  - action: scrapeXPath
+    url:
+      - femdom-pov.me/
+    scraper: sceneScraper
+
+xPathScrapers:
+  sceneScraper:
+    scene:
+      # og:title is "Performer - Title | <site name>". The suffix varies — 37 of 40
+      # sampled posts end in "| Femdom POV" and 3 in the longer site title — so it is
+      # stripped from the last "|" rather than matched literally. The performer prefix
+      # then comes off with a non-greedy match, leaving titles that contain their own
+      # " - " intact.
+      Title:
+        selector: //meta[@property="og:title"]/@content
+        postProcess:
+          - replace:
+              - regex: '\s*\|[^|]*$'
+                with: ""
+              - regex: '^.*? - '
+                with: ""
+
+      URL: //meta[@property="og:url"]/@content
+
+      Details: //meta[@property="og:description"]/@content
+
+      Image: //meta[@property="og:image"]/@content
+
+      # The performer is only ever the og:title prefix. This site has no performer
+      # taxonomy to corroborate it with — unlike the JoiMe scraper, where the first tag
+      # link and the title prefix agree. rel="tag" here is genres (Femdom Pov, JOI,
+      # Hypno), and matched the performer on 1 of 40 sampled posts. So a post whose
+      # title is not in "Performer - Title" shape will give a wrong performer; all 40
+      # sampled posts were in that shape.
+      Performers:
+        Name:
+          selector: //meta[@property="og:title"]/@content
+          postProcess:
+            - replace:
+                # Strip the site suffix.
+                - regex: '\s*\|[^|]*$'
+                  with: ""
+                # Not every post is "Performer - Title": site announcements ("Happy New
+                # Year!") and a few oddly-punctuated titles have no separator at all —
+                # 5 of 340 in one category. A plain extract would leave those untouched
+                # and invent a performer called "Happy New Year!", so titles carrying a
+                # separator are marked first, unmarked ones are blanked, and only then
+                # is the prefix taken.
+                - regex: '^(.+ - .+)$'
+                  with: "\u241F$1"
+                - regex: '^([^\u241F].*)$'
+                  with: ""
+                - regex: '^\u241F(.*?) - .*$'
+                  with: "$1"
+
+      # rel="tag" is WordPress's own per-post tag markup. It matters here: the page also
+      # carries a sidebar tag cloud of ~45 links that is identical on every post, so a
+      # plain //a[contains(@href,"/tag/")] would tag every scene with the whole cloud.
+      Tags:
+        Name: //a[@rel="tag"]
+
+      # Not mapped: Studio (the site is an index, not the producer) and Date (the post
+      # date is when the entry was added here, not the clip's release).
+
+# Last Updated September 8, 2026

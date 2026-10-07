@@ -1,0 +1,84 @@
+# Scraper for https://mistresscalia.com/ (WordPress + Yoast SEO)
+# Matches any post URL of the form https://mistresscalia.com/<slug>/
+name: "Mistress Calia"
+
+sceneByURL:
+  - action: scrapeXPath
+    url:
+      - mistresscalia.com/
+    scraper: sceneScraper
+
+xPathScrapers:
+  sceneScraper:
+    scene:
+      # og:title is already the bare post title; the <title> tag has " - Mistress Calia" appended
+      Title: //meta[@property="og:title"]/@content
+
+      URL: //link[@rel="canonical"]/@href
+
+      # UTC publish date, e.g. 2026-08-24T11:15:51+00:00 -> 2026-08-24
+      # (Yoast emits this on every post, always +00:00.)
+      Date:
+        selector: //meta[@property="article:published_time"]/@content
+        postProcess:
+          - replace:
+              - regex: '^(\d{4}-\d{2}-\d{2}).*$'
+                with: "$1"
+
+      # Details = the og:description teaser, then the body copy.
+      #
+      # The teaser is a WordPress excerpt: 295 of 362 posts carry it only in <head>, and
+      # 90 also render it into div.acp-post-audio. Prepending the meta gives every post
+      # the same opening line; the `normalize-space() = //meta[...]` clause then drops the
+      # rendered copy on the 65 posts where the two are identical, so nothing repeats.
+      # (If your Stash build rejects that clause, delete it — you get 65 duplicate lines
+      # back but everything else keeps working.)
+      #
+      # Body copy is every non-empty p/h2/h3/h4/li under .entry-content. The descendant
+      # axis matters: the teaser sits in div.acp-post-audio and some posts lay text out
+      # in wp-block-columns, both of which a child-only axis drops.
+      #
+      # Excluded: the related-posts block and its heading, the "Read the Script" <details>
+      # accordion (19 posts hide the full transcript there — 109k characters on
+      # the-edge-of-sanity), the Haptics boilerplate, and the audio player's own chrome
+      # ("0:00", "Your browser does not support the audio element").
+      Details:
+        selector: >-
+          //meta[@property="og:description"]/@content
+          |
+          //div[contains(@class,"entry-content")]//*[
+          self::p or self::h2 or self::h3 or self::h4 or self::li
+          ][
+          normalize-space()
+          and not(ancestor::div[@id="acp-search-results"])
+          and not(ancestor::details)
+          and not(ancestor::li)
+          and not(descendant::audio)
+          and not(ancestor::div[contains(@class,"acp-enhanced-player")])
+          and not(normalize-space() = //meta[@property="og:description"]/@content)
+          and not(contains(., "haptic feedback enabled"))
+          and not(contains(., "haptic-enabled device"))
+          and not(normalize-space() = "Haptics")
+          and not(normalize-space() = "More Erotic Hypnosis")
+          and not(starts-with(translate(normalize-space(), "MORELIKTHS", "morelikths"), "more like this"))
+          ]
+        concat: "\n\n"
+
+      # Full-size cover (the og:/twitter: meta hold the original upload, not a resized
+      # variant). One post (drone-mode-3) has no og:image, hence the twitter:image
+      # fallback; where both exist og:image is emitted first, so it wins.
+      Image: //meta[@property="og:image"]/@content | //meta[@name="twitter:image"]/@content
+
+      Studio:
+        Name:
+          fixed: "Mistress Calia"
+
+      Performers:
+        Name:
+          fixed: "Mistress Calia"
+
+      # Bonus: WordPress post tags + categories. Delete this block if you don't want them.
+      Tags:
+        Name: //div[contains(@class,"taxonomy-post_tag")]/a | //div[contains(@class,"taxonomy-category")]/a
+
+# Last Updated August 26, 2026

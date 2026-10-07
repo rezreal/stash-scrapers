@@ -1,0 +1,36 @@
+# Session credentials — never commit these
+shibbydex-cookies.txt
+shibbydex-cookies.txt.*
+*.cookies.txt
+
+# Generated caches; both rebuild themselves on demand
+shibbydex-series.json
+shibbydex-index.json
+
+# Downloaded media
+*.mp3
+*.m4a
+*.wav
+*.flac
+*.funscript
+*.jpg
+*.jpeg
+*.png
+*.webp
+
+# Generated catalogues — large, regenerable, and full of scraped third-party metadata
+*.csv
+
+# build_site.sh output
+_site/
+
+node_modules/
+package-lock.json
+
+# Not part of this repo: the joi-me lock-bypass script and its npm manifest. It also had
+# a live session credential baked in, so it is excluded rather than parameterised.
+tools/joime-deeplink.js
+tools/package.json
+
+__pycache__/
+*.pyc
