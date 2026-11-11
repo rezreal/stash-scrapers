@@ -1,0 +1,36 @@
+# Scraper for https://giveinto.me/ (Earesistible)
+# Matches file pages: https://giveinto.me/file/<variant_id>
+#
+# This drives GiveIntoMe.py. Both files go in the same directory; the script needs
+# python3 on PATH and nothing else.
+#
+# Why a script rather than mapped XPath: the site is a Next.js static export. Every page
+# — listing and file alike — is a ~2.6 KB shell with empty pageProps, no <title>, no og
+# tags, and there is no sitemap. There is literally no HTML to select against, so the
+# metadata has to come from the site's JSON API.
+name: "Give Into Me"
+
+sceneByURL:
+  - action: script
+    url:
+      - giveinto.me/file/
+    script:
+      - python3
+      - GiveIntoMe.py
+
+# Search by name. The whole catalogue is 183 items in one response, so this is cheap —
+# the script caches it rather than fetching per query.
+sceneByName:
+  action: script
+  script:
+    - python3
+    - GiveIntoMe.py
+    - sceneByName
+
+sceneByQueryFragment:
+  action: script
+  script:
+    - python3
+    - GiveIntoMe.py
+
+# Last Updated November 12, 2026

@@ -3,9 +3,10 @@ shibbydex-cookies.txt
 shibbydex-cookies.txt.*
 *.cookies.txt
 
-# Generated caches; both rebuild themselves on demand
+# Generated caches; all rebuild themselves on demand
 shibbydex-series.json
 shibbydex-index.json
+giveinto-catalogue.json
 
 # Downloaded media
 *.mp3

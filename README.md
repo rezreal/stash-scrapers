@@ -8,6 +8,7 @@ Scrapers for a few adult sites, plus the download tools that go with two of them
 | [Shibbydex](scrapers/Shibbydex) | shibbydex.com | Python, `sceneByURL` + search + `groupByURL` |
 | [JoiMe](scrapers/JoiMe) | joi-me.com | XPath, `sceneByURL` |
 | [FemdomPov](scrapers/FemdomPov) | femdom-pov.me | XPath, `sceneByURL` |
+| [GiveIntoMe](scrapers/GiveIntoMe) | giveinto.me | Python, `sceneByURL` + search |
 
 Each scraper has an `overview.md` with what it maps, what it deliberately skips, and how
 it was verified. The [downloaders](tools) live separately, because Stash's scraper

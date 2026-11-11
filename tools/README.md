@@ -130,6 +130,62 @@ Differences from the joi-me tool worth knowing:
 is correct rather than a failure. See the scraper's overview for why en-dashes are not
 treated as separators.
 
+## giveinto-catalogue.py
+
+CSV catalogue of giveinto.me (Earesistible). The whole catalogue is a **single API
+response** — 183 files, no pagination — so this makes exactly one request.
+
+```bash
+./giveinto-catalogue.py -o giveinto.csv
+./giveinto-catalogue.py --tier Free --type 'Hypno: Full' -o free-hypno.csv
+./giveinto-catalogue.py --tier Free --list
+```
+
+Columns: `url, file_id, variant_id, title, type, tier, audiences, tags, variants,
+duration, duration_s, released, image, synopsis`. Filters: `--tier`, `--type`,
+`--audience`, `--tag`, `--since`, plus `--list` to print instead of writing.
+
+91 of the 183 files are Free tier; releases span 2021-10 to 2026-11.
+
+## giveinto-dl.py
+
+Audio and funscripts from giveinto.me, saved under one basename so Stash pairs them:
+
+```
+[F4M] Conditioned For Slumber.opus
+[F4M] Conditioned For Slumber.funscript
+```
+
+```bash
+./giveinto-dl.py https://giveinto.me/file/<variant_id> -o ~/stash/earesistible
+./giveinto-dl.py --from-catalogue --tier Free --limit 10 -o ~/stash/earesistible
+```
+
+```
+-o DIR            target directory
+--from-catalogue  select from the catalogue instead of URLs (+ --tier / --type / --limit)
+--all-variants    every variant, not just the primary one
+--format opus     force opus; the default prefers mp3 and falls back
+--extras          also haptics audio, lossless and cover, when your tier allows
+--no-haptics      skip the funscript
+--name title      basename from title + audience instead of the CDN filename
+-f / -n           force re-download / dry run
+```
+
+**Primary variant only by default.** 104 of the 183 files have more than one — alternate
+audiences, `No Binaurals`, `Relaxing Binaurals` and so on — and `--all-variants` fetches
+the rest. Most alternates sit behind a higher tier, which is reported per variant.
+
+**MP3 is preferred, Opus is the fallback.** Each asset has its own tier
+(`tier_listen`, `tier_haptics_funscript`, `tier_haptics_audio`, `tier_lossless`), so a
+file can offer a free Opus and a free funscript while its MP3 needs a subscription. The
+tool says which it took and why.
+
+Anything your tier cannot reach comes back from the API as the literal string
+`[UPGRADE]` rather than a URL, so those are reported and skipped rather than written as
+broken files. CDN filenames contain spaces and brackets, so paths are percent-encoded —
+unencoded requests fail.
+
 ## shibbydex-dl.py
 
 
