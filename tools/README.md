@@ -169,7 +169,24 @@ until `--apply`.
 --apply             actually write (default: dry run)
 --force             replace a URL the scene already has
 --insecure          skip TLS verification, for a self-signed or expired certificate
+--resolve HOST:IP   dial IP but keep HOST in the URL and the TLS SNI (like curl's --resolve)
 ```
+
+`--resolve` matters more than it looks. A server that answers only to one name rejects any
+other SNI name with `TLSV1_UNRECOGNIZED_NAME` *before* a certificate is even considered, so
+skipping verification cannot fix it — and pointing the URL at `odroid.local` instead of
+`odroid` fails exactly that way. `--resolve odroid:192.168.178.251` keeps the right name on
+the wire without needing root or an `/etc/hosts` edit.
+
+**Make `--path-contains` as specific as the directory.** It is a case-insensitive
+substring match on the whole path, so `earesistable` also matched
+`/Hypnose/Earesistable - Reverse Hypnosis.mp3`, a file *outside* the directory whose name
+merely contains the word. Use `"/Hypnose/earesistable/"` rather than the bare word.
+
+Also handled: `_LOSSLESS` copies resolve to the plain catalogue title, `Title - Variant`
+falls back to the title, and an unmatched file shows its closest catalogue title without
+applying it — `Pusle of Pleasure` is flagged as `Pulse of Pleasure` (0.93) but left alone,
+because a typo is a suggestion rather than a match.
 
 Matching is on the normalised title plus the audience tag in the filename. Names come from
 the creator's CDN, which prefixes most but not all of them (`[F4M] Some Title`, but also a

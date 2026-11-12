@@ -15,9 +15,11 @@ match, and writes nothing until --apply.
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import os
 import re
+import socket
 import ssl
 import sys
 import urllib.error
@@ -95,6 +97,8 @@ def match(stem: str, index: dict[str, list[dict]], items: list[dict]) -> dict | 
     Names come from the creator's CDN, which prefixes most but not all with an audience
     tag — '[F4M] Some Title', but also a bare 'Earesistible Takeover'.
     """
+    # "_LOSSLESS" marks a lossless copy of a file the catalogue lists under its plain title.
+    stem = re.sub(r"[_ ]lossless$", "", stem, flags=re.I)
     m = re.match(r"^\[([^\]]+)\]\s*(.*)$", stem)
     audience, title = (m.group(1), m.group(2)) if m else (None, stem)
     key = norm(title)
@@ -102,6 +106,10 @@ def match(stem: str, index: dict[str, list[dict]], items: list[dict]) -> dict | 
         return None
     candidates = index.get(key) or [
         it for it in items if norm(it.get("title") or "").startswith(key)]
+    if not candidates and " - " in title:
+        # "Throb and Hold - Normal Binaurals": a variant name appended to a real title.
+        # Exact match on the head only, so this cannot turn into a loose prefix guess.
+        candidates = index.get(norm(title.split(" - ", 1)[0])) or []
     if len(candidates) == 1:
         return candidates[0]
     if len(candidates) > 1 and audience:
@@ -113,6 +121,17 @@ def match(stem: str, index: dict[str, list[dict]], items: list[dict]) -> dict | 
     return None
 
 
+def suggest(stem: str, items: list[dict]) -> str:
+    """Closest catalogue title, shown but never applied — a typo is not a match."""
+    key = norm(re.sub(r"^\[[^\]]+\]\s*", "", re.sub(r"[_ ]lossless$", "", stem, flags=re.I)))
+    best = max(items, key=lambda i: difflib.SequenceMatcher(
+        None, norm(i.get("title") or ""), key).ratio(), default=None)
+    if not best:
+        return ""
+    ratio = difflib.SequenceMatcher(None, norm(best.get("title") or ""), key).ratio()
+    return f"  (closest: {best['title']!r}, {ratio:.2f})" if ratio >= 0.6 else ""
+
+
 def main() -> int:
     p = argparse.ArgumentParser(description=__doc__,
                                 formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -122,6 +141,11 @@ def main() -> int:
     p.add_argument("--path-contains", default="",
                    help="only touch scenes whose file path contains this, so the run "
                         "cannot stray into the rest of your library")
+    p.add_argument("--resolve", metavar="HOST:IP",
+                   help="dial IP but keep HOST in the URL and TLS SNI, like curl's "
+                        "--resolve. Needed when the server answers only to a name your "
+                        "resolver does not know: it rejects an unknown SNI name with "
+                        "TLSV1_UNRECOGNIZED_NAME before any certificate is considered.")
     p.add_argument("--insecure", action="store_true",
                    help="skip TLS verification — needed for a self-signed or expired "
                         "certificate")
@@ -130,6 +154,18 @@ def main() -> int:
                    help="replace a URL the scene already has")
     p.add_argument("--per-page", type=int, default=200)
     args = p.parse_args()
+
+    if args.resolve:
+        host, _, ip = args.resolve.partition(":")
+        if not ip:
+            p.error("--resolve wants HOST:IP")
+        real = socket.getaddrinfo
+
+        def pinned(h, port, *a, **kw):
+            return real(ip if h == host else h, port, *a, **kw)
+
+        socket.getaddrinfo = pinned
+        print(f"resolving {host} -> {ip}", flush=True)
 
     try:
         items = catalogue()
@@ -154,7 +190,7 @@ def main() -> int:
         page += 1
     print(f"stash: {len(scenes)} scenes", flush=True)
 
-    todo, skipped, unmatched = [], [], []
+    todo, skipped, unmatched, sample_paths = [], [], [], []
     for sc in scenes:
         paths = [f.get("path", "") for f in (sc.get("files") or [])]
         if args.path_contains and not any(
@@ -162,10 +198,12 @@ def main() -> int:
             continue
         if not paths:
             continue
+        if len(sample_paths) < 3:
+            sample_paths.append(paths[0])
         stem = os.path.splitext(os.path.basename(paths[0]))[0]
         hit = match(stem, index, items)
         if not hit:
-            unmatched.append(stem)
+            unmatched.append(stem + suggest(stem, items))
             continue
         url = f"{SITE}/file/{hit.get('first_variant_id')}"
         if sc.get("urls") and not args.force:
@@ -173,6 +211,10 @@ def main() -> int:
             continue
         todo.append((sc["id"], stem, url))
 
+    if sample_paths:
+        print("\n  scenes under the path filter, e.g.:")
+        for pth in sample_paths:
+            print(f"    {pth}")
     print(f"\n  to set        : {len(todo)}")
     print(f"  already had   : {len(skipped)}   (--force to replace)")
     print(f"  unmatched     : {len(unmatched)}")
