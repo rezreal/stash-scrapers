@@ -93,10 +93,10 @@ def slugify(text: str) -> str:
 def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     name = os.path.basename(dest)
     if os.path.exists(dest) and not force:
-        print(f"    = {name} (exists, skipped)")
+        print(f"    = {name} (exists, skipped)", flush=True)
         return True
     if dry_run:
-        print(f"    → {name}  <- {url}")
+        print(f"    → {name}  <- {url}", flush=True)
         return True
     tmp = dest + ".part"
     try:
@@ -109,26 +109,26 @@ def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     except (urllib.error.URLError, OSError) as exc:
         if os.path.exists(tmp):
             os.remove(tmp)
-        print(f"    ! {name}: {exc}", file=sys.stderr)
+        print(f"    ! {name}: {exc}", file=sys.stderr, flush=True)
         return False
     os.replace(tmp, dest)
-    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)")
+    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)", flush=True)
     return True
 
 
 def handle(url: str, args: argparse.Namespace) -> bool:
-    print(url)
+    print(url, flush=True)
     try:
         page = fetch(url)
     except (urllib.error.URLError, OSError) as exc:
-        print(f"    ! fetch failed: {exc}", file=sys.stderr)
+        print(f"    ! fetch failed: {exc}", file=sys.stderr, flush=True)
         return False
 
     info = parse(page)
-    print(f"    {info['title'] or '?'} — {info['date'] or '?'}")
+    print(f"    {info['title'] or '?'} — {info['date'] or '?'}", flush=True)
 
     if not info["audio"]:
-        print("    ! no free download on this post (paid / sample only) — skipped")
+        print("    ! no free download on this post (paid / sample only) — skipped", flush=True)
         return False
 
     base = slugify(info["title"] or "") if args.name == "title" else url.rstrip("/").rsplit("/", 1)[-1]
@@ -140,7 +140,7 @@ def handle(url: str, args: argparse.Namespace) -> bool:
         ok &= download(info["funscript"], os.path.join(args.outdir, base + ".funscript"),
                        args.force, args.dry_run)
     elif not args.no_funscript:
-        print("    - no funscript on this post")
+        print("    - no funscript on this post", flush=True)
     if args.cover and info["cover"]:
         ok &= download(info["cover"], os.path.join(args.outdir, base + ext_of(info["cover"], ".jpg")),
                        args.force, args.dry_run)

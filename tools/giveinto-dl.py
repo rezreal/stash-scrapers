@@ -69,10 +69,10 @@ def remote_stem(url: str) -> str:
 def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     name = os.path.basename(dest)
     if os.path.exists(dest) and not force:
-        print(f"    = {name} (exists, skipped)")
+        print(f"    = {name} (exists, skipped)", flush=True)
         return True
     if dry_run:
-        print(f"    → {name}")
+        print(f"    → {name}", flush=True)
         return True
     tmp = dest + ".part"
     try:
@@ -85,10 +85,10 @@ def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     except (urllib.error.URLError, OSError) as exc:
         if os.path.exists(tmp):
             os.remove(tmp)
-        print(f"    ! {name}: {exc}", file=sys.stderr)
+        print(f"    ! {name}: {exc}", file=sys.stderr, flush=True)
         return False
     os.replace(tmp, dest)
-    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)")
+    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)", flush=True)
     time.sleep(DELAY)
     return True
 
@@ -105,13 +105,13 @@ def handle_variant(data: dict, variant: dict, args: argparse.Namespace) -> bool:
         f" / {variant['title']}" if variant.get("title") else "")
     tier = variant.get("tier_listen")
     print(f"    [{label}] {variant.get('duration','?')} — tier "
-          f"{TIERS.get(tier, tier)}")
+          f"{TIERS.get(tier, tier)}", flush=True)
 
     # MP3 first when the account can reach it; audio_url is the default Opus.
     mp3, opus = usable(variant.get("audio_mp3")), usable(variant.get("audio_url"))
     audio = (opus if args.format == "opus" and opus else mp3 or opus)
     if not audio:
-        print("    ! no audio available at this tier — skipped")
+        print("    ! no audio available at this tier — skipped", flush=True)
         return False
 
     os.makedirs(args.outdir, exist_ok=True)
@@ -125,14 +125,14 @@ def handle_variant(data: dict, variant: dict, args: argparse.Namespace) -> bool:
     if mp3 and opus and audio is mp3:
         pass                       # mp3 chosen; nothing to note
     elif not mp3 and args.format != "opus":
-        print("    - mp3 needs a higher tier, took the opus")
+        print("    - mp3 needs a higher tier, took the opus", flush=True)
 
     if not args.no_haptics:
         fs = usable(variant.get("haptics_funscript_url"))
         if fs:
             ok &= download(fs, base + ".funscript", args.force, args.dry_run)
         else:
-            print("    - no funscript at this tier")
+            print("    - no funscript at this tier", flush=True)
 
     if args.extras:
         for field, suffix in (("haptics_audio_url", ".haptics"),
@@ -155,20 +155,20 @@ def handle(variant_id: str, args: argparse.Namespace, seen: set[str]) -> bool:
     try:
         data = api(f"/get/{urllib.parse.quote(variant_id)}")
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        print(f"  ! {variant_id}: {exc}", file=sys.stderr)
+        print(f"  ! {variant_id}: {exc}", file=sys.stderr, flush=True)
         return False
     time.sleep(DELAY)
     if not isinstance(data, dict) or not data.get("variants"):
-        print(f"  ! {variant_id}: nothing returned")
+        print(f"  ! {variant_id}: nothing returned", flush=True)
         return False
 
     variants = data["variants"]
-    print(f"  {data.get('title','?')} — {len(variants)} variant(s)")
+    print(f"  {data.get('title','?')} — {len(variants)} variant(s)", flush=True)
     chosen = variants if args.all_variants else [
         next((v for v in variants if v.get("_id") == variant_id), variants[0])]
     if len(variants) > 1 and not args.all_variants:
         print(f"    (primary only; --all-variants for the other "
-              f"{len(variants) - 1})")
+              f"{len(variants) - 1})", flush=True)
 
     ok = True
     for v in chosen:
@@ -208,7 +208,7 @@ def main() -> int:
         try:
             items = api("/list/full?getFilters=1")
         except (urllib.error.URLError, OSError, ValueError) as exc:
-            print(f"catalogue fetch failed: {exc}", file=sys.stderr)
+            print(f"catalogue fetch failed: {exc}", file=sys.stderr, flush=True)
             return 1
         rows = []
         for it in items if isinstance(items, list) else []:
@@ -221,7 +221,7 @@ def main() -> int:
             rows.append(it)
         rows.sort(key=lambda r: ((r.get("meta") or {}).get("latest_release") or ""),
                   reverse=True)
-        print(f"{len(rows)} files match")
+        print(f"{len(rows)} files match", flush=True)
         ids += [r["first_variant_id"] for r in rows if r.get("first_variant_id")]
     if not ids:
         p.error("give at least one URL, or --from-catalogue")

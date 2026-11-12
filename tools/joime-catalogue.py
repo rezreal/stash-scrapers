@@ -139,7 +139,7 @@ def add_description(row: dict) -> None:
     try:
         page = fetch(row["url"])
     except (FetchError, OSError) as exc:
-        print(f"    ! {row['url']}: {exc}", file=sys.stderr)
+        print(f"    ! {row['url']}: {exc}", file=sys.stderr, flush=True)
         return
     m = re.search(r'<meta name="description" content="([^"]*)"', page)
     if m:
@@ -196,7 +196,7 @@ def main() -> int:
     if args.append and os.path.exists(args.out):
         with open(args.out, newline="", encoding="utf-8") as fh:
             known = {r["url"] for r in csv.DictReader(fh) if r.get("url")}
-        print(f"{len(known)} clips already in {args.out}")
+        print(f"{len(known)} clips already in {args.out}", flush=True)
 
     writer = Writer(args.out, args.append)
     print(f"writing {args.out} as it goes — safe to stop with Ctrl-C", flush=True)

@@ -77,12 +77,12 @@ def main() -> int:
         with urllib.request.urlopen(req, timeout=60) as resp:
             items = json.loads(resp.read().decode("utf-8", "replace"))
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        print(f"fetch failed: {exc}", file=sys.stderr)
+        print(f"fetch failed: {exc}", file=sys.stderr, flush=True)
         return 1
     if not isinstance(items, list):
-        print("unexpected response shape", file=sys.stderr)
+        print("unexpected response shape", file=sys.stderr, flush=True)
         return 1
-    print(f"{len(items)} files in the catalogue (one request)")
+    print(f"{len(items)} files in the catalogue (one request)", flush=True)
 
     rows = []
     for it in items:
@@ -118,17 +118,17 @@ def main() -> int:
         rows = [r for r in rows if r["released"] >= args.since]
     rows.sort(key=lambda r: (r["released"], r["title"]), reverse=True)
 
-    print(f"{len(rows)} match the filters")
+    print(f"{len(rows)} match the filters", flush=True)
     if args.list:
         for r in rows:
-            print(f"  {r['released']}  {r['tier']:<16} {r['duration']:>10}  {r['title']}")
+            print(f"  {r['released']}  {r['tier']:<16} {r['duration']:>10}  {r['title']}", flush=True)
         return 0 if rows else 1
 
     with open(args.out, "w", newline="", encoding="utf-8") as fh:
         w = csv.DictWriter(fh, fieldnames=FIELDS)
         w.writeheader()
         w.writerows(rows)
-    print(f"wrote {len(rows)} files -> {args.out}")
+    print(f"wrote {len(rows)} files -> {args.out}", flush=True)
     return 0 if rows else 1
 
 

@@ -190,7 +190,7 @@ def load_cookies(explicit: str | None = None) -> str:
         if re.search(r"%[0-9A-Fa-f]?$", c.value):
             print(f"warning: cookie {c.name} ends in an incomplete percent-escape "
                   f"({c.value[-3:]!r}) — the value looks truncated, re-copy it",
-                  file=sys.stderr)
+                  file=sys.stderr, flush=True)
     OPENER = urllib.request.build_opener(urllib.request.HTTPCookieProcessor(jar))
     OPENER.addheaders = [("User-Agent", UA)]
     COOKIES_LOADED = True
@@ -271,9 +271,9 @@ def build_index(path: str, update: bool) -> dict:
     if update:
         try:
             files = json.load(open(path, encoding="utf-8")).get("files", {})
-            print(f"updating {len(files)} known files")
+            print(f"updating {len(files)} known files", flush=True)
         except (OSError, ValueError):
-            print("no usable index yet, building from scratch")
+            print("no usable index yet, building from scratch", flush=True)
 
     page = 1
     added = 0
@@ -281,7 +281,7 @@ def build_index(path: str, update: bool) -> dict:
         try:
             markup = fetch(LISTING % page)
         except (urllib.error.URLError, OSError) as exc:
-            print(f"  page {page} failed: {exc}", file=sys.stderr)
+            print(f"  page {page} failed: {exc}", file=sys.stderr, flush=True)
             break
         cards = parse_listing(markup)
         if not cards:
@@ -290,10 +290,10 @@ def build_index(path: str, update: bool) -> dict:
         for card in cards:
             files[card["uuid"]] = card
         added += len(fresh)
-        print(f"  page {page:2d}: {len(cards):3d} cards, {len(fresh):3d} new")
+        print(f"  page {page:2d}: {len(cards):3d} cards, {len(fresh):3d} new", flush=True)
         # The listing is newest first, so an update can stop once a whole page is known.
         if update and not fresh:
-            print("  reached already-indexed files, stopping")
+            print("  reached already-indexed files, stopping", flush=True)
             break
         page += 1
         time.sleep(DELAY)
@@ -301,9 +301,9 @@ def build_index(path: str, update: bool) -> dict:
     blob = {"fetched": time.time(), "files": files}
     try:
         json.dump(blob, open(path, "w", encoding="utf-8"))
-        print(f"{len(files)} files indexed ({added} new) -> {path}")
+        print(f"{len(files)} files indexed ({added} new) -> {path}", flush=True)
     except OSError as exc:
-        print(f"could not write {path}: {exc}", file=sys.stderr)
+        print(f"could not write {path}: {exc}", file=sys.stderr, flush=True)
     return blob
 
 
@@ -440,7 +440,7 @@ def basename_for(info: dict, mode: str) -> str:
         time.sleep(DELAY)
         if remote:
             return remote
-        print("    - no filename on the download redirect, falling back to the title")
+        print("    - no filename on the download redirect, falling back to the title", flush=True)
     base = slugify(info["title"])
     # Variations share a title, so the audience is what tells the files apart on disk.
     if len(info["variations"]) > 1 and info["audience"]:
@@ -451,10 +451,10 @@ def basename_for(info: dict, mode: str) -> str:
 def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     name = os.path.basename(dest)
     if os.path.exists(dest) and not force:
-        print(f"    = {name} (exists, skipped)")
+        print(f"    = {name} (exists, skipped)", flush=True)
         return True
     if dry_run:
-        print(f"    → {name}  <- {url}")
+        print(f"    → {name}  <- {url}", flush=True)
         return True
     tmp = dest + ".part"
     try:
@@ -467,10 +467,10 @@ def download(url: str, dest: str, force: bool, dry_run: bool) -> bool:
     except (urllib.error.URLError, OSError) as exc:
         if os.path.exists(tmp):
             os.remove(tmp)
-        print(f"    ! {name}: {exc}", file=sys.stderr)
+        print(f"    ! {name}: {exc}", file=sys.stderr, flush=True)
         return False
     os.replace(tmp, dest)
-    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)")
+    print(f"    ✓ {name} ({size / 1048576:.1f} MiB)", flush=True)
     time.sleep(DELAY)
     return True
 
@@ -487,11 +487,11 @@ def handle(uuid: str, args: argparse.Namespace, seen: set[str],
     seen.add(uuid)
 
     url = f"{BASE}/file/{uuid}"
-    print(url)
+    print(url, flush=True)
     try:
         page = fetch(url)
     except (urllib.error.URLError, OSError) as exc:
-        print(f"    ! fetch failed: {exc}", file=sys.stderr)
+        print(f"    ! fetch failed: {exc}", file=sys.stderr, flush=True)
         return False
     time.sleep(DELAY)
 
@@ -499,32 +499,32 @@ def handle(uuid: str, args: argparse.Namespace, seen: set[str],
     m = re.search(r'<body[^>]*data-user-tier="(\d+)"', page)
     if m and int(m.group(1)) != SESSION_TIER:
         SESSION_TIER = int(m.group(1))
-        print(f"    (site reports data-user-tier={SESSION_TIER})")
+        print(f"    (site reports data-user-tier={SESSION_TIER})", flush=True)
     if m and m.group(1) == "0" and COOKIES_LOADED and not WARNED_ANON:
         WARNED_ANON = True
         print("    ! cookies were loaded but the site reports data-user-tier=0 — the "
               "session is not being accepted. Re-copy the cookie value (check it is "
-              "complete and unexpired); note $SHIBBYDEX_COOKIE overrides the file.")
+              "complete and unexpired); note $SHIBBYDEX_COOKIE overrides the file.", flush=True)
 
     info = parse(page, uuid)
     label = f" [{info['audience']}]" if info["audience"] else ""
-    print(f"    {info['title'] or '?'}{label} — {info['date'] or '?'} — tier: {info['tier'] or '?'}")
+    print(f"    {info['title'] or '?'}{label} — {info['date'] or '?'} — tier: {info['tier'] or '?'}", flush=True)
 
     ok = True
     if info["video"]:
         # 13 of 100 sampled files are an embedded video rather than an audio file;
         # /play and /download both answer 404 for them. Not an error — audio only.
-        print("    - video file, skipped (audio only)")
+        print("    - video file, skipped (audio only)", flush=True)
     elif not info["downloadable"]:
         why = (info["lock_reason"] or "locked for this session").strip()
-        print(f"    ! {why} — skipped")
+        print(f"    ! {why} — skipped", flush=True)
         ok = False
     else:
         os.makedirs(args.outdir, exist_ok=True)
         if not args.keep_duplicates:
             print_ = fingerprint(uuid)
             if print_ and print_ in fingerprints:
-                print(f"    = identical audio to {fingerprints[print_]} — skipped")
+                print(f"    = identical audio to {fingerprints[print_]} — skipped", flush=True)
                 return ok
             if print_:
                 fingerprints[print_] = None   # filled in once the name is known
@@ -551,24 +551,24 @@ def handle(uuid: str, args: argparse.Namespace, seen: set[str],
                 ext = ".funscript" if primary else f".{kind}.funscript"
                 ok &= download(href, base + ext, args.force, args.dry_run)
             if not info["haptics"]:
-                print("    - no haptics on this file")
+                print("    - no haptics on this file", flush=True)
             elif not args.all_haptics and len(info["haptics"]) > 1:
                 skipped = sorted(k for k in info["haptics"]
                                  if k not in ("funscript", "vibe"))
-                print(f"    - {', '.join(skipped)} available too (--all-haptics)")
+                print(f"    - {', '.join(skipped)} available too (--all-haptics)", flush=True)
         if args.cover:
             if info["cover"]:
                 ext = os.path.splitext(urllib.parse.urlparse(info["cover"]).path)[1] or ".png"
                 ok &= download(info["cover"], base + ext, args.force, args.dry_run)
             else:
-                print("    - placeholder artwork only, no cover to fetch")
+                print("    - placeholder artwork only, no cover to fetch", flush=True)
 
     if args.variations:
         for v in info["variations"]:
             if v["current"]:
                 continue
             if "video" in v["label"].lower():
-                print(f"    - variation '{v['label']}' is a video, skipped")
+                print(f"    - variation '{v['label']}' is a video, skipped", flush=True)
                 seen.add(v["uuid"])
                 continue
             ok &= handle(v["uuid"], args, seen, claimed, fingerprints)
@@ -617,7 +617,7 @@ def main() -> int:
     p.add_argument("-n", "--dry-run", action="store_true", help="show what would be downloaded")
     args = p.parse_args()
 
-    print(load_cookies(args.cookies))
+    print(load_cookies(args.cookies), flush=True)
 
     path = index_path(args.index)
     if args.build_index or args.update_index:
@@ -629,15 +629,15 @@ def main() -> int:
         try:
             blob = json.load(open(path, encoding="utf-8"))
         except (OSError, ValueError):
-            print(f"no index at {path} — run --build-index first", file=sys.stderr)
+            print(f"no index at {path} — run --build-index first", file=sys.stderr, flush=True)
             return 1
         rows = select(blob, args)
-        print(f"{len(rows)} of {len(blob.get('files', {}))} indexed files match")
+        print(f"{len(rows)} of {len(blob.get('files', {}))} indexed files match", flush=True)
         if args.list:
             for r in rows:
                 print(f"  {r.get('date','?')}  {(r.get('tier') or '?'):<12} "
                       f"{(r.get('audience') or '?'):<5} {(r.get('duration') or '?'):>9}  "
-                      f"{r.get('title','?')}")
+                      f"{r.get('title','?')}", flush=True)
             return 0
         urls += [r["url"] for r in rows]
     if not urls:
@@ -650,7 +650,7 @@ def main() -> int:
     for raw in urls:
         m = UUID.search(raw)
         if not m:
-            print(f"! not a shibbydex file URL or UUID: {raw}", file=sys.stderr)
+            print(f"! not a shibbydex file URL or UUID: {raw}", file=sys.stderr, flush=True)
             failed += 1
             continue
         if not handle(m.group(0), args, seen, claimed, fingerprints):
