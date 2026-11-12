@@ -39,6 +39,10 @@ TIERS = {-1: "Free", 7841239: "Good Pet", 7841240: "Loving Pet",
 UPGRADE = "[UPGRADE]"
 DELAY = 0.4
 ILLEGAL = re.compile(r'[<>:"/\\|?*\x00-\x1f]')
+# Assets the site advertises but does not actually serve. A missing funscript or cover is
+# worth reporting, but it is not a failed download — only the audio is required, so these
+# are collected here instead of being folded into the exit status.
+OPTIONAL_MISSES: list[str] = []
 
 
 def encode(url: str) -> str:
@@ -130,7 +134,8 @@ def handle_variant(data: dict, variant: dict, args: argparse.Namespace) -> bool:
     if not args.no_haptics:
         fs = usable(variant.get("haptics_funscript_url"))
         if fs:
-            ok &= download(fs, base + ".funscript", args.force, args.dry_run)
+            if not download(fs, base + ".funscript", args.force, args.dry_run):
+                OPTIONAL_MISSES.append(f"{stem}.funscript")
         else:
             print("    - no funscript at this tier", flush=True)
 
@@ -140,11 +145,13 @@ def handle_variant(data: dict, variant: dict, args: argparse.Namespace) -> bool:
             extra = usable(variant.get(field))
             if extra:
                 e = os.path.splitext(urllib.parse.urlsplit(extra).path)[1] or ""
-                ok &= download(extra, f"{base}{suffix}{e}", args.force, args.dry_run)
+                if not download(extra, f"{base}{suffix}{e}", args.force, args.dry_run):
+                    OPTIONAL_MISSES.append(f"{stem}{suffix}{e}")
         cover = usable(data.get("image"))
         if cover:
             e = os.path.splitext(urllib.parse.urlsplit(cover).path)[1] or ".webp"
-            ok &= download(cover, base + e, args.force, args.dry_run)
+            if not download(cover, base + e, args.force, args.dry_run):
+                OPTIONAL_MISSES.append(f"{stem}{e}")
     return ok
 
 
@@ -230,6 +237,13 @@ def main() -> int:
 
     seen: set[str] = set()
     failed = sum(0 if handle(i, args, seen) else 1 for i in ids)
+    if OPTIONAL_MISSES:
+        print(f"\n{len(OPTIONAL_MISSES)} optional file(s) the site advertised but did not "
+              f"serve (the audio is still complete):", flush=True)
+        for name in OPTIONAL_MISSES:
+            print(f"  - {name}", flush=True)
+    if failed:
+        print(f"\n{failed} of {len(ids)} file(s) failed", flush=True)
     return 1 if failed else 0
 
 

@@ -46,6 +46,9 @@ COOKIE_ENV = "SHIBBYDEX_COOKIE"
 OPENER = urllib.request.build_opener()
 SESSION_TIER = 0
 COOKIES_LOADED = False
+# Optional extras the site may advertise but not serve. Only the audio decides the exit
+# status; these are reported separately.
+OPTIONAL_MISSES: list[str] = []
 WARNED_ANON = False
 BASE = "https://shibbydex.com"
 HOST = "shibbydex.com"
@@ -549,7 +552,8 @@ def handle(uuid: str, args: argparse.Namespace, seen: set[str],
                 # every file checked, bar stroker which is genuinely different.
                 primary = kind in ("funscript", "vibe")
                 ext = ".funscript" if primary else f".{kind}.funscript"
-                ok &= download(href, base + ext, args.force, args.dry_run)
+                if not download(href, base + ext, args.force, args.dry_run):
+                    OPTIONAL_MISSES.append(os.path.basename(base + ext))
             if not info["haptics"]:
                 print("    - no haptics on this file", flush=True)
             elif not args.all_haptics and len(info["haptics"]) > 1:
@@ -559,7 +563,8 @@ def handle(uuid: str, args: argparse.Namespace, seen: set[str],
         if args.cover:
             if info["cover"]:
                 ext = os.path.splitext(urllib.parse.urlparse(info["cover"]).path)[1] or ".png"
-                ok &= download(info["cover"], base + ext, args.force, args.dry_run)
+                if not download(info["cover"], base + ext, args.force, args.dry_run):
+                    OPTIONAL_MISSES.append(os.path.basename(base + ext))
             else:
                 print("    - placeholder artwork only, no cover to fetch", flush=True)
 
