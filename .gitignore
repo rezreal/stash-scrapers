@@ -13,6 +13,8 @@ giveinto-catalogue.json
 *.m4a
 *.wav
 *.flac
+*.opus
+*.ogg
 *.funscript
 *.jpg
 *.jpeg
