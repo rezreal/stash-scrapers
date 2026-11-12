@@ -147,6 +147,39 @@ duration, duration_s, released, image, synopsis`. Filters: `--tier`, `--type`,
 
 91 of the 183 files are Free tier; releases span 2021-10 to 2026-11.
 
+## giveinto-link.py
+
+Sets the giveinto.me URL on Stash scenes, so the URL scraper has something to match on.
+Scenes added from disk have no URL, so `sceneByURL` never fires; this maps each scene's
+filename back to its catalogue entry and writes `scene.urls`. After that Stash's
+**Identify** task can run the Give Into Me scraper across all of them unattended.
+
+```bash
+./giveinto-link.py --stash-url https://odroid/stash --path-contains earesistible
+./giveinto-link.py --stash-url https://odroid/stash --path-contains earesistible --apply
+```
+
+Dry run by default — it prints every pairing and every unmatched file, and writes nothing
+until `--apply`.
+
+```
+--stash-url URL     base URL of Stash (its /graphql is derived from this)
+--api-key KEY       or set STASH_API_KEY
+--path-contains S   only touch scenes whose file path contains S
+--apply             actually write (default: dry run)
+--force             replace a URL the scene already has
+--insecure          skip TLS verification, for a self-signed or expired certificate
+```
+
+Matching is on the normalised title plus the audience tag in the filename. Names come from
+the creator's CDN, which prefixes most but not all of them (`[F4M] Some Title`, but also a
+bare `Earesistible Takeover`), and characters illegal on Windows shares are stripped at
+save time — `Who Do You Want Me To Be?` lands without its `?`. Self-tested against the
+real catalogue: all 91 free files resolve to the correct URL from either name shape,
+182 of 182.
+
+`--path-contains` is worth using: it keeps a run from straying into the rest of a library.
+
 ## giveinto-dl.py
 
 Audio and funscripts from giveinto.me, saved under one basename so Stash pairs them:
